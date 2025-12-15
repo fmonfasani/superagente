@@ -6,7 +6,9 @@ def build_graph():
     g = StateGraph(dict)
     g.add_node("planner", planner_agent)
     g.add_node("orchestrator", orchestrator)
+
     g.set_entry_point("planner")
     g.add_edge("planner", "orchestrator")
     g.set_finish_point("orchestrator")
+
     return g.compile()
