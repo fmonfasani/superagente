@@ -1,55 +1,55 @@
-# planner/planner.py
-from typing import Dict, List
-from planner.models import PlannerInput, PlanStep, PlanResult
-from planner.logger import log_step, timeit
+# app/agents/planner/planner.py
 
-# 👇 agentes registrados
-from agents.architect import ArchitectAgent
-from agents.backend import BackendAgent
-
-AGENTS = {
-    "architect": ArchitectAgent(),
-    "backend": BackendAgent(),
-}
-
+from app.agents.planner.schema import PlannerInput, Plan, PlanStep
 
 class Planner:
+    """
+    Planner determinístico.
+    - NO ejecuta agentes
+    - NO usa LLM
+    - SOLO define el plan
+    """
 
-    def __init__(self, agents: Dict):
-        self.agents = agents
+    def plan(self, req: PlannerInput) -> Plan:
+        text = req.input.lower()
+        steps: list[PlanStep] = []
 
-    def build_plan(self, input: PlannerInput) -> List[PlanStep]:
-        # ⚠️ planner SOLO arma el plan
-        return [
-            PlanStep(1, "architect", "definir estructura"),
-            PlanStep(2, "backend", "crear modelo"),
-        ]
+        # Regla base: backend / CRUD
+        if "crud" in text or "api" in text or "fastapi" in text:
+            steps = [
+                PlanStep(
+                    id=1,
+                    agent="architect",
+                    goal="Definir arquitectura del proyecto y estructura de carpetas"
+                ),
+                PlanStep(
+                    id=2,
+                    agent="backend",
+                    goal="Definir modelos de datos y contratos (ORM + schemas)"
+                ),
+                PlanStep(
+                    id=3,
+                    agent="code",
+                    goal="Implementar endpoints CRUD con FastAPI"
+                ),
+                PlanStep(
+                    id=4,
+                    agent="reviewer",
+                    goal="Revisar coherencia, calidad y buenas prácticas"
+                ),
+            ]
 
-    def execute(self, input: PlannerInput) -> List[PlanResult]:
-        plan = self.build_plan(input)
-        results: List[PlanResult] = []
-
-        for step in plan:
-            agent = self.agents.get(step.agent)
-            if not agent:
-                raise ValueError(f"Agente no encontrado: {step.agent}")
-
-            log_step(step.agent, step.task)
-
-            @timeit
-            def run_agent():
-                return agent.run(step.task, context=input.constraints)
-
-            output, duration = run_agent()
-
-            results.append(
-                PlanResult(
-                    step_id=step.step_id,
-                    agent=step.agent,
-                    task=step.task,
-                    output=output,
-                    duration_ms=duration
+        # Fallback seguro
+        if not steps:
+            steps = [
+                PlanStep(
+                    id=1,
+                    agent="architect",
+                    goal=f"Analizar requerimiento: {req.input}"
                 )
-            )
+            ]
 
-        return results
+        return Plan(
+            input=req.input,
+            steps=steps
+        )

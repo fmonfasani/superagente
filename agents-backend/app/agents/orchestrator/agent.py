@@ -1,26 +1,48 @@
-from app.agents.task.agent import task_agent
+from app.agents.planner.schema import Plan
+from app.agents.reasoning.agent import reasoning_agent
 from app.agents.code.agent import code_agent
 
+AGENTS = {
+    "architect": reasoning_agent,
+    "backend": reasoning_agent,
+    "reviewer": reasoning_agent,
+    "code": code_agent,
+}
+
 def orchestrator(state: dict):
+    plan: Plan = state["plan"]
+
     results = []
+    memory = []
 
-    for step in state["plan"]:
-        agent = step["agent"]
-        goal = step["goal"]
+    for step in plan.steps:
+        if step.agent not in AGENTS:
+            raise ValueError(f"Agente no registrado: {step.agent}")
 
-        if agent == "code":
-            out = code_agent({"input": goal})
-        else:
-            out = task_agent({"input": goal})
+        agent_fn = AGENTS[step.agent]
 
-        results.append({
-            "step": step["step"],
-            "agent": agent,
-            "goal": goal,
-            "output": out["output"]
+        out = agent_fn({
+            "input": step.goal,
+            "memory": memory,
+            "context": {
+                "request": plan.input,
+                "agent": step.agent,
+                "step": step.id,
+            }
         })
 
+        result = {
+            "step": step.id,
+            "agent": step.agent,
+            "goal": step.goal,
+            "output": out["output"]
+        }
+
+        results.append(result)
+        memory.append(result)
+
     return {
-        "input": state["input"],
-        "results": results
+        "input": plan.input,
+        "results": results,
+        "memory": memory
     }
